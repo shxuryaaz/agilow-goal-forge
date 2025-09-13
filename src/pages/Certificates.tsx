@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Trophy,
@@ -17,83 +17,41 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
+import { certificateService, Certificate } from '@/services/certificates';
+import { certificatePDFService } from '@/services/certificatePDF';
 
-interface Certificate {
-  id: string;
-  title: string;
-  description: string;
-  type: 'goal_completion' | 'milestone' | 'streak' | 'achievement';
-  earnedDate: Date;
-  xpReward: number;
-  imageUrl?: string;
-  nftMinted: boolean;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
-}
+// Using Certificate interface from certificate service
 
 const Certificates: React.FC = () => {
   const { user, userProfile } = useAuth();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // Mock certificates data
-  const certificates: Certificate[] = [
-    {
-      id: '1',
-      title: 'Goal Master',
-      description: 'Completed your first major goal',
-      type: 'goal_completion',
-      earnedDate: new Date('2024-01-15'),
-      xpReward: 500,
-      nftMinted: true,
-      rarity: 'epic'
-    },
-    {
-      id: '2',
-      title: 'Week Warrior',
-      description: 'Completed a full week of tasks',
-      type: 'milestone',
-      earnedDate: new Date('2024-01-10'),
-      xpReward: 100,
-      nftMinted: true,
-      rarity: 'common'
-    },
-    {
-      id: '3',
-      title: 'Consistency Champion',
-      description: '7-day streak of daily progress',
-      type: 'streak',
-      earnedDate: new Date('2024-01-08'),
-      xpReward: 200,
-      nftMinted: false,
-      rarity: 'rare'
-    },
-    {
-      id: '4',
-      title: 'Speed Demon',
-      description: 'Completed a week\'s tasks in 3 days',
-      type: 'achievement',
-      earnedDate: new Date('2024-01-05'),
-      xpReward: 300,
-      nftMinted: true,
-      rarity: 'legendary'
+  // Load certificates from the certificate service
+  useEffect(() => {
+    if (user) {
+      const userCertificates = certificateService.getUserCertificates(user.uid);
+      setCertificates(userCertificates);
     }
-  ];
+  }, [user]);
 
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case 'legendary': return 'text-yellow-400 border-yellow-400';
-      case 'epic': return 'text-purple-400 border-purple-400';
-      case 'rare': return 'text-blue-400 border-blue-400';
-      default: return 'text-green-400 border-green-400';
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'bhag_completion': return 'text-yellow-400 border-yellow-400';
+      case 'milestone': return 'text-purple-400 border-purple-400';
+      case 'streak': return 'text-blue-400 border-blue-400';
+      case 'achievement': return 'text-green-400 border-green-400';
+      default: return 'text-gray-400 border-gray-400';
     }
   };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'goal_completion': return <Trophy className="w-5 h-5" />;
+      case 'bhag_completion': return <Trophy className="w-5 h-5" />;
       case 'milestone': return <Star className="w-5 h-5" />;
       case 'streak': return <Sparkles className="w-5 h-5" />;
       case 'achievement': return <Award className="w-5 h-5" />;
@@ -101,15 +59,38 @@ const Certificates: React.FC = () => {
     }
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'goal_completion': return 'bg-yellow-500/20 text-yellow-400';
-      case 'milestone': return 'bg-blue-500/20 text-blue-400';
-      case 'streak': return 'bg-green-500/20 text-green-400';
-      case 'achievement': return 'bg-purple-500/20 text-purple-400';
-      default: return 'bg-gray-500/20 text-gray-400';
+  const handleDownloadPDF = async (certificate: Certificate) => {
+    try {
+      // Try to download from image first, fallback to generated PDF
+      if (certificate.imageUrl) {
+        await certificatePDFService.downloadCertificatePDFFromImage(certificate);
+      } else {
+        await certificatePDFService.downloadCertificatePDF(certificate);
+      }
+    } catch (error) {
+      console.error('Error downloading certificate PDF:', error);
     }
   };
+
+  const handleViewCertificate = (certificate: Certificate) => {
+    if (certificate.imageUrl) {
+      // Open image in new tab
+      window.open(certificate.imageUrl, '_blank');
+    } else {
+      // Generate and view PDF
+      certificatePDFService.generateCertificatePDF(certificate)
+        .then((pdfBlob) => {
+          const url = URL.createObjectURL(pdfBlob);
+          window.open(url, '_blank');
+          // Clean up after a delay
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        })
+        .catch((error) => {
+          console.error('Error viewing certificate:', error);
+        });
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -199,7 +180,7 @@ const Certificates: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-foreground">
-                        {certificates.reduce((sum, c) => sum + c.xpReward, 0)}
+                        {certificates.reduce((sum, c) => sum + c.xpAwarded, 0)}
                       </p>
                       <p className="text-sm text-muted-foreground">Total XP Earned</p>
                     </div>
@@ -221,7 +202,7 @@ const Certificates: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-2xl font-bold text-foreground">
-                        {certificates.filter(c => c.rarity === 'legendary').length}
+                        {certificates.filter(c => c.type === 'bhag_completion').length}
                       </p>
                       <p className="text-sm text-muted-foreground">Legendary</p>
                     </div>
@@ -245,8 +226,25 @@ const Certificates: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {certificates.map((cert, index) => (
+                {certificates.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
+                      <Trophy className="w-10 h-10 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-foreground mb-2">No Certificates Yet</h3>
+                    <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                      Complete goals and achieve milestones to earn your first certificates and NFTs!
+                    </p>
+                    <Button 
+                      onClick={() => window.location.href = '/dashboard'}
+                      className="bg-gradient-primary hover:shadow-glow"
+                    >
+                      Start Your Journey
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {certificates.map((cert, index) => (
                     <motion.div
                       key={cert.id}
                       initial={{ opacity: 0, y: 20 }}
@@ -267,8 +265,8 @@ const Certificates: React.FC = () => {
                                   <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
                                     {cert.title}
                                   </h3>
-                                  <Badge className={`text-xs ${getRarityColor(cert.rarity)}`}>
-                                    {cert.rarity}
+                                  <Badge className={`text-xs ${getTypeColor(cert.type)}`}>
+                                    {cert.type.replace('_', ' ').toUpperCase()}
                                   </Badge>
                                 </div>
                               </div>
@@ -288,14 +286,14 @@ const Certificates: React.FC = () => {
                             <div className="flex items-center space-x-2">
                               <Star className="w-4 h-4 text-yellow-400" />
                               <span className="text-sm font-medium text-foreground">
-                                +{cert.xpReward} XP
+                                +{cert.xpAwarded} XP
                               </span>
                             </div>
 
                             {/* Date */}
                             <div className="flex items-center space-x-2 text-xs text-muted-foreground">
                               <Calendar className="w-3 h-3" />
-                              <span>Earned {cert.earnedDate.toLocaleDateString()}</span>
+                              <span>Earned {new Date(cert.completionDate).toLocaleDateString()}</span>
                             </div>
 
                             {/* Actions */}
@@ -304,6 +302,7 @@ const Certificates: React.FC = () => {
                                 variant="outline"
                                 size="sm"
                                 className="flex-1 text-xs"
+                                onClick={() => handleViewCertificate(cert)}
                               >
                                 <Eye className="w-3 h-3 mr-1" />
                                 View
@@ -312,6 +311,7 @@ const Certificates: React.FC = () => {
                                 variant="outline"
                                 size="sm"
                                 className="flex-1 text-xs"
+                                onClick={() => handleDownloadPDF(cert)}
                               >
                                 <Download className="w-3 h-3 mr-1" />
                                 Download
@@ -320,6 +320,18 @@ const Certificates: React.FC = () => {
                                 variant="outline"
                                 size="sm"
                                 className="flex-1 text-xs"
+                                onClick={() => {
+                                  if (navigator.share && cert.imageUrl) {
+                                    navigator.share({
+                                      title: cert.title,
+                                      text: cert.description,
+                                      url: cert.imageUrl
+                                    });
+                                  } else {
+                                    // Fallback: copy to clipboard
+                                    navigator.clipboard.writeText(cert.imageUrl || '');
+                                  }
+                                }}
                               >
                                 <Share2 className="w-3 h-3 mr-1" />
                                 Share
@@ -330,7 +342,8 @@ const Certificates: React.FC = () => {
                       </Card>
                     </motion.div>
                   ))}
-                </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>

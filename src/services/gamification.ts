@@ -64,16 +64,24 @@ class GamificationService {
    */
   async awardXP(userId: string, amount: number, reason: string, source: XPTransaction['source'], goalId?: string, achievementId?: string): Promise<void> {
     try {
-      // Add XP transaction
-      await addDoc(collection(db, this.xpTransactionsCollection), {
+      // Add XP transaction - only include defined fields
+      const transactionData: any = {
         userId,
         amount,
         reason,
         source,
-        goalId,
-        achievementId,
         timestamp: serverTimestamp()
-      });
+      };
+
+      // Only add optional fields if they're defined
+      if (goalId) {
+        transactionData.goalId = goalId;
+      }
+      if (achievementId) {
+        transactionData.achievementId = achievementId;
+      }
+
+      await addDoc(collection(db, this.xpTransactionsCollection), transactionData);
 
       // Update user stats
       const userStatsRef = doc(db, this.userStatsCollection, userId);
@@ -82,6 +90,18 @@ class GamificationService {
         lastActive: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+
+      // Also update user profile XP (for UI display) - get current value first for immediate UI update
+      const userProfileRef = doc(db, 'users', userId);
+      const userProfileDoc = await getDoc(userProfileRef);
+      const currentXP = userProfileDoc.exists() ? (userProfileDoc.data().xp || 0) : 0;
+      const newXP = currentXP + amount;
+      
+      await updateDoc(userProfileRef, {
+        xp: newXP
+      });
+      
+      console.log(`Updated user profile XP: ${currentXP} + ${amount} = ${newXP} for user ${userId}`);
 
       // Check for level up
       await this.checkLevelUp(userId);
@@ -227,6 +247,15 @@ class GamificationService {
         lastActive: serverTimestamp(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
+      });
+
+      // Ensure user profile also has XP field initialized
+      const userProfileRef = doc(db, 'users', userId);
+      await updateDoc(userProfileRef, {
+        xp: 0
+      }).catch(() => {
+        // If update fails, the user profile might not exist yet, which is fine
+        console.log('User profile not found, XP will be set when profile is created');
       });
 
       return { ...initialStats, id: docRef.id };

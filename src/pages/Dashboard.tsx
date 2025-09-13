@@ -8,6 +8,7 @@ import {
   Calendar,
   CheckCircle
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '@/components/layout/sidebar';
 import TopBar from '@/components/layout/topbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,7 +19,8 @@ import TrelloIntegration from '@/components/trello/trello-integration';
 import { trelloService } from '@/services/trello';
 
 const Dashboard: React.FC = () => {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, refreshKey, getCurrentXP } = useAuth();
+  const navigate = useNavigate();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showTrelloIntegration, setShowTrelloIntegration] = useState(false);
 
@@ -28,61 +30,61 @@ const Dashboard: React.FC = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
 
-  // Mock data for dashboard metrics
+  // Calculate user level based on XP (1000 XP per level)
+  const calculateLevel = (xp: number) => {
+    return Math.floor(xp / 1000) + 1;
+  };
+
+  const userLevel = getCurrentXP() ? calculateLevel(getCurrentXP()) : 1;
+
+  // Navigation handlers for Quick Actions
+  const handleCreateNewGoal = () => {
+    navigate('/chat');
+  };
+
+  const handleViewAchievements = () => {
+    navigate('/certificates');
+  };
+
+  const handleViewCalendar = () => {
+    // TODO: Implement calendar view
+    console.log('Calendar view not implemented yet');
+  };
+
+  // Real data will be loaded from Firebase
   const stats = [
     {
       title: 'Total Goals',
-      value: '12',
-      change: '+2 this week',
+      value: '0',
+      change: 'No goals yet',
       icon: Target,
       color: 'text-blue-400'
     },
     {
       title: 'Completed',
-      value: '8',
-      change: '+3 this week',
+      value: '0',
+      change: 'No completions yet',
       icon: CheckCircle,
       color: 'text-green-400'
     },
     {
       title: 'In Progress',
-      value: '4',
-      change: '2 active',
+      value: '0',
+      change: 'No active goals',
       icon: TrendingUp,
       color: 'text-yellow-400'
     },
     {
       title: 'Total XP',
-      value: '2,450',
-      change: '+300 this week',
+      value: getCurrentXP().toString(),
+      change: getCurrentXP() ? `${getCurrentXP()} XP earned` : 'Start earning XP!',
       icon: Trophy,
       color: 'text-purple-400'
     }
   ];
 
-  const recentGoals = [
-    {
-      id: '1',
-      name: 'Complete React Course',
-      progress: 75,
-      status: 'in-progress',
-      dueDate: '2024-01-15'
-    },
-    {
-      id: '2',
-      name: 'Run 5K Marathon',
-      progress: 45,
-      status: 'in-progress',
-      dueDate: '2024-02-01'
-    },
-    {
-      id: '3',
-      name: 'Read 12 Books',
-      progress: 100,
-      status: 'completed',
-      dueDate: '2024-01-10'
-    }
-  ];
+  // Real goals will be loaded from Firebase
+  const recentGoals: any[] = [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -108,9 +110,9 @@ const Dashboard: React.FC = () => {
               <p className="text-muted-foreground">Track your goals and progress</p>
             </div>
             <div className="flex items-center space-x-2">
-              <Badge variant="outline" className="text-green-400 border-green-400">
+              <Badge variant="outline" className="text-green-400 border-green-400" key={refreshKey}>
                 <Trophy className="w-3 h-3 mr-1" />
-                Level 5
+                Level {userLevel}
               </Badge>
             </div>
           </motion.div>
@@ -132,7 +134,9 @@ const Dashboard: React.FC = () => {
                     <stat.icon className={`w-4 h-4 ${stat.color}`} />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+                    <div className="text-2xl font-bold text-foreground" key={refreshKey}>
+                      {stat.value}
+                    </div>
                     <p className="text-xs text-muted-foreground">{stat.change}</p>
                   </CardContent>
                 </Card>
@@ -197,21 +201,36 @@ const Dashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-lg bg-sidebar-accent/20 border border-sidebar-border hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
+                  <motion.div 
+                    className="p-4 rounded-lg bg-sidebar-accent/20 border border-sidebar-border hover:bg-sidebar-accent/30 transition-colors cursor-pointer"
+                    onClick={handleCreateNewGoal}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
                     <Target className="w-8 h-8 text-blue-400 mb-2" />
                     <h3 className="font-medium text-foreground mb-1">Create New Goal</h3>
                     <p className="text-sm text-muted-foreground">Start a new goal with AI assistance</p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-sidebar-accent/20 border border-sidebar-border hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
+                  </motion.div>
+                  <motion.div 
+                    className="p-4 rounded-lg bg-sidebar-accent/20 border border-sidebar-border hover:bg-sidebar-accent/30 transition-colors cursor-pointer"
+                    onClick={handleViewCalendar}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
                     <Calendar className="w-8 h-8 text-green-400 mb-2" />
                     <h3 className="font-medium text-foreground mb-1">View Calendar</h3>
                     <p className="text-sm text-muted-foreground">See your goal timeline</p>
-                  </div>
-                  <div className="p-4 rounded-lg bg-sidebar-accent/20 border border-sidebar-border hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
+                  </motion.div>
+                  <motion.div 
+                    className="p-4 rounded-lg bg-sidebar-accent/20 border border-sidebar-border hover:bg-sidebar-accent/30 transition-colors cursor-pointer"
+                    onClick={handleViewAchievements}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
                     <Trophy className="w-8 h-8 text-purple-400 mb-2" />
                     <h3 className="font-medium text-foreground mb-1">View Achievements</h3>
                     <p className="text-sm text-muted-foreground">Check your progress and rewards</p>
-                  </div>
+                  </motion.div>
                 </div>
               </CardContent>
             </Card>

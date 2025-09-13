@@ -17,56 +17,23 @@ interface BadgeDisplayProps {
   showAll?: boolean;
 }
 
-const defaultBadges: Badge[] = [
-  {
-    id: 'first-goal',
-    name: 'First Goal',
-    description: 'Set your first goal',
-    icon: Target,
-    color: 'text-primary',
-    earned: true,
-    earnedAt: new Date('2024-01-15')
-  },
-  {
-    id: 'streak-7',
-    name: '7-Day Streak',
-    description: 'Maintained activity for 7 days',
-    icon: Zap,
-    color: 'text-success',
-    earned: false
-  },
-  {
-    id: 'first-plan',
-    name: 'Planning Master',
-    description: 'Generated your first SMART plan',
-    icon: Star,
-    color: 'text-accent-green',
-    earned: true,
-    earnedAt: new Date('2024-01-16')
-  },
-  {
-    id: 'milestone-5',
-    name: 'Milestone Achiever',
-    description: 'Completed 5 milestones',
-    icon: Award,
-    color: 'text-amber-500',
-    earned: false
-  },
-  {
-    id: 'bhag-setter',
-    name: 'BHAG Setter',
-    description: 'Set a Big Hairy Audacious Goal',
-    icon: Crown,
-    color: 'text-purple-500',
-    earned: false
-  }
-];
-
 const BadgeDisplay: React.FC<BadgeDisplayProps> = ({ 
-  badges = defaultBadges, 
+  badges = [], 
   showAll = false 
 }) => {
   const displayBadges = showAll ? badges : badges.filter(b => b.earned);
+
+  if (displayBadges.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+          <Trophy className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-semibold text-foreground mb-2">No Achievements Yet</h3>
+        <p className="text-muted-foreground">Start creating goals and completing milestones to earn your first achievements!</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">

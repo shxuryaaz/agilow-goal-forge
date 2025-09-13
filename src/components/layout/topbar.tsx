@@ -31,7 +31,7 @@ interface TopBarProps {
 
 const TopBar: React.FC<TopBarProps> = ({ onSidebarToggle, isSidebarCollapsed }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { user, userProfile, signOut } = useAuth();
+  const { user, userProfile, signOut, refreshKey, getCurrentXP } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -87,8 +87,8 @@ const TopBar: React.FC<TopBarProps> = ({ onSidebarToggle, isSidebarCollapsed }) 
             className="hidden sm:flex items-center space-x-2 px-3 py-1 bg-success/10 border border-success/20 rounded-full"
           >
             <Trophy className="w-4 h-4 text-success" />
-            <span className="text-sm font-medium text-success">
-              {userProfile?.xp || 0} XP
+            <span className="text-sm font-medium text-success" key={refreshKey}>
+              {getCurrentXP()} XP
             </span>
           </motion.div>
 

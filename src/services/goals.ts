@@ -16,6 +16,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '@/lib/firebase';
 import { Goal, Milestone, OpenAIGoalResponse, NFTData } from '@/types/firebase';
 import { mintGoalNFT } from './nft';
+import { gamificationService } from './gamification';
 
 // Cloud Functions
 const processGoalWithAI = httpsCallable(functions, 'processGoalWithAI');
@@ -122,6 +123,20 @@ export const createGoal = async (userId: string, goalText: string, walletAddress
         console.error('NFT minting failed:', nftError);
         // Continue without NFT minting
       }
+    }
+
+    // Award BHAG creation achievement
+    try {
+      await gamificationService.unlockAchievement(userId, 'bhag_creator', {
+        title: 'BHAG Creator',
+        description: 'Created your first Big Hairy Audacious Goal!',
+        xpReward: 50,
+        rarity: 'epic',
+        icon: '🎯'
+      });
+    } catch (achievementError) {
+      console.error('BHAG achievement failed:', achievementError);
+      // Continue without achievement
     }
 
     return { 

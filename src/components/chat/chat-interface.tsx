@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import TypingIndicator from '@/components/ui/typing-indicator';
 import { useAuth } from '@/contexts/AuthContext';
 import { createGoal } from '@/services/goals';
-import { useGamification } from '@/services/gamification';
+import { localXPService } from '@/services/localXP';
 import { useToast } from '@/hooks/use-toast';
 import agliowLogo from '@/assets/agilow-logo.png';
 
@@ -33,9 +33,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [localMessages, setLocalMessages] = useState<Message[]>(messages);
   const [isProcessingGoal, setIsProcessingGoal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, refreshUserProfile, updateUserProfileXP, setUserProfileXP } = useAuth();
   const { toast } = useToast();
-  const { awardXP } = useGamification();
+  // Using local XP service instead of Firebase
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -99,21 +99,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     try {
       const goal = await createGoal(user.uid, goalText, userProfile?.wallet?.publicAddress);
       
-      // Award XP for goal creation
-      await awardXP(50, 'Goal created', 'milestone', goal.id);
+        // Award XP for BHAG creation
+        try {
+          // Optimistic UI update - show XP immediately
+          const currentXP = userProfile?.xp || 0;
+          const newXP = currentXP + 100;
+          setUserProfileXP(newXP);
+          
+          await localXPService.awardXP(user.uid, 100, 'BHAG created', 'milestone', goal.id);
+          console.log('XP awarded successfully for BHAG creation (local only)');
+        } catch (xpError) {
+          console.error('Failed to award XP:', xpError);
+          // Revert optimistic update on error
+          const currentXP = userProfile?.xp || 0;
+          setUserProfileXP(currentXP - 100);
+          // Continue without XP - don't fail the entire goal creation
+        }
       
       setIsTyping(false);
       const successMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: `🎉 Amazing! I've created a structured plan for "${goal.goal}". You earned 50 XP! ${goal.nft ? 'A Proof-of-Commitment NFT has been minted to your wallet!' : ''} Check your dashboard to see your milestones, Trello board, and NFT gallery.`,
+        text: `🎉 Amazing! I've created a structured plan for "${goal.goal}". You earned 100 XP for creating your BHAG! ${goal.nft ? 'A Proof-of-Commitment NFT has been minted to your wallet!' : ''} Check your dashboard to see your milestones, Trello board, and NFT gallery.`,
         isUser: false,
         timestamp: new Date()
       };
       setLocalMessages(prev => [...prev, successMessage]);
       
       toast({
-        title: "Goal Created! 🎯",
-        description: "Your goal has been processed and a Trello board has been created.",
+        title: "BHAG Created! 🎯",
+        description: "Your BHAG has been processed and a Trello board has been created. You earned 100 XP!",
       });
       
       onGoalSubmit?.(goalText);

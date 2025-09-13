@@ -23,7 +23,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle, onOpenChatHistory }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, refreshKey, getCurrentXP } = useAuth();
 
   const navigationItems = [
     {
@@ -222,8 +222,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle, onOpenChatHist
                   <p className="text-sm font-medium text-sidebar-foreground truncate">
                     {userProfile?.name || 'User'}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {userProfile?.xp || 0} XP
+                  <p className="text-xs text-muted-foreground truncate" key={refreshKey}>
+                    {getCurrentXP()} XP
                   </p>
                 </div>
               </motion.div>

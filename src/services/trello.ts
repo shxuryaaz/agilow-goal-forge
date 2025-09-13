@@ -545,7 +545,9 @@ class TrelloService {
     try {
       return await this.makeRequest(userId, `/boards/${boardId}/lists`, {
         filter: 'open',
-        fields: 'id,name,closed'
+        fields: 'id,name,closed',
+        cards: 'open',
+        card_fields: 'id,name,desc,due,dueComplete,idList,labels,url'
       }, 'GET');
     } catch (error) {
       console.error('Error getting board lists:', error);

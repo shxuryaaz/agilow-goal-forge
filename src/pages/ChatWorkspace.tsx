@@ -24,15 +24,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTrello, trelloService } from '@/services/trello';
 import { useAI, FourWOneHAnswers } from '@/services/ai';
 import { useChatHistory, ChatSession, ChatMessage } from '@/services/chatHistory';
+import { localXPService } from '@/services/localXP';
+import { bhagCompletionService } from '@/services/bhagCompletion';
+import { certificateService } from '@/services/certificates';
 import ChatHistory from '@/components/chat/chat-history';
 import TrelloIntegration from '@/components/trello/trello-integration';
 
 
 const ChatWorkspace: React.FC = () => {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, refreshUserProfile, updateUserProfileXP, setUserProfileXP } = useAuth();
   const { isAuthenticated: getIsAuthenticated, authenticate, createGoalBoard, addImageToBHAG, moveCardToList, findCardByName, getBoardLists } = useTrello();
   const { generate4W1HQuestions, process4W1HAnswers, generateGoalImage, processProgressUpdate, generateProgressDiscussionResponse, analyzeProgress } = useAI();
   const { saveSession, loadSession, createNewSession, saveGoal, getUserGoals, addUserXP } = useChatHistory();
+  // Using local XP service instead of Firebase
   
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [currentSession, setCurrentSession] = useState<ChatSession | null>(null);
@@ -403,8 +407,26 @@ const ChatWorkspace: React.FC = () => {
       await addImageToBHAG(boardId, imageUrl, `${goalStructure.title} Vision`);
       console.log('Image added to BHAG successfully');
 
+      // Award XP for BHAG creation
+      console.log('Step 5: Awarding XP for BHAG creation...');
+      try {
+        // Optimistic UI update - show XP immediately
+        const currentXP = userProfile?.xp || 0;
+        const newXP = currentXP + 100;
+        setUserProfileXP(newXP);
+        
+        await localXPService.awardXP(user.uid, 100, 'BHAG created', 'milestone', boardId);
+        console.log('XP awarded successfully for BHAG creation (local only)');
+      } catch (xpError) {
+        console.error('Failed to award XP:', xpError);
+        // Revert optimistic update on error
+        const currentXP = userProfile?.xp || 0;
+        setUserProfileXP(currentXP - 100);
+        // Continue without XP - don't fail the entire goal creation
+      }
+
       // Update session with board info
-      console.log('Step 5: Updating session...');
+      console.log('Step 6: Updating session...');
       setCurrentSession(prev => ({
         ...prev,
         currentStep: 'active',
@@ -413,8 +435,22 @@ const ChatWorkspace: React.FC = () => {
         fourWOneHAnswers: fourWOneHAnswers as FourWOneHAnswers
       }));
 
+      // Award BHAG Creation Certificate (since this is a new BHAG)
+      console.log('Step 7: Awarding BHAG Creation Certificate...');
+      try {
+        await certificateService.generateBHAGCertificate(
+          user.uid, 
+          goalStructure.title,
+          new Date()
+        );
+        console.log('🎖️ BHAG Creation Certificate awarded!');
+      } catch (certError) {
+        console.error('Error awarding BHAG creation certificate:', certError);
+        // Continue without failing the entire process
+      }
+
       // Refresh boards and switch to the new board after a delay
-      console.log('Step 6: Refreshing boards and switching to new board...');
+      console.log('Step 8: Refreshing boards and switching to new board...');
       setTimeout(async () => {
         try {
           const updatedBoards = await trelloService.getBoards(user!.uid);
@@ -432,9 +468,9 @@ const ChatWorkspace: React.FC = () => {
       }, 1000); // 1 second delay
 
       // Only send success message if ALL steps completed successfully
-      console.log('Step 7: All steps completed successfully, sending success message...');
+            console.log('Step 9: All steps completed successfully, sending success message...');
       simulateAIResponse(
-        `🎉 Excellent! I've created your goal board "${goalStructure.title}" in Trello with a structured weekly plan. I've also generated a visual representation of your goal in the BHAG list. You can now start working on your tasks and report your progress to me!`,
+        `🎉 Excellent! I've created your goal board "${goalStructure.title}" in Trello with a structured weekly plan. I've also generated a visual representation of your goal in the BHAG list. You earned 100 XP for creating your BHAG! You can now start working on your tasks and report your progress to me!`,
         2000
       );
     } catch (error) {
