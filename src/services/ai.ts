@@ -37,7 +37,93 @@ class AIService {
   /**
    * Generate 4W1H questions based on initial goal input
    */
-  generate4W1HQuestions(initialGoal: string): string[] {
+  async generate4W1HQuestions(initialGoal: string): Promise<string[]> {
+    try {
+      if (!this.apiKey) {
+        // Fallback to hardcoded questions if no API key
+        return this.getFallbackQuestions(initialGoal);
+      }
+
+      const prompt = `
+        You are a professional goal-setting coach. Generate 6 personalized, engaging questions to help someone create a detailed plan for their goal.
+        
+        Goal: "${initialGoal}"
+        
+        Create 6 questions that follow the 4W1H framework (What, Why, When, Where, Who, How) but make them:
+        1. Personalized to this specific goal
+        2. Thought-provoking and insightful
+        3. Professional yet conversational
+        4. Designed to extract detailed, actionable information
+        5. Each question should be unique and not repetitive
+        
+        Format: Return only the 6 questions as a JSON array of strings, no additional text or explanation.
+        
+        Example format:
+        [
+          "What specific outcome do you want to achieve with this goal?",
+          "Why is achieving this goal personally meaningful to you?",
+          "When do you realistically want to complete this goal?",
+          "Where will you primarily work on this goal?",
+          "Who can support you in achieving this goal?",
+          "How will you measure success for this goal?"
+        ]
+      `;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a professional goal-setting coach who creates personalized, insightful questions to help people achieve their goals.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 800
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const questionsText = data.choices[0]?.message?.content?.trim();
+      
+      if (!questionsText) {
+        throw new Error('No questions generated');
+      }
+
+      // Parse the JSON response
+      try {
+        const questions = JSON.parse(questionsText);
+        if (Array.isArray(questions) && questions.length === 6) {
+          console.log('✅ AI-generated personalized 4W1H questions');
+          return questions;
+        }
+      } catch (parseError) {
+        console.error('Error parsing AI-generated questions:', parseError);
+      }
+
+      // Fallback if parsing fails
+      return this.getFallbackQuestions(initialGoal);
+
+    } catch (error) {
+      console.error('Error generating AI questions:', error);
+      return this.getFallbackQuestions(initialGoal);
+    }
+  }
+
+  private getFallbackQuestions(initialGoal: string): string[] {
     return [
       `What exactly do you want to achieve with "${initialGoal}"? Be as specific as possible.`,
       `Why is this goal important to you? What's your motivation behind it?`,

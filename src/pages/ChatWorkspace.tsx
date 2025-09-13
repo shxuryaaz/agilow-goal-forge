@@ -34,7 +34,7 @@ import TrelloIntegration from '@/components/trello/trello-integration';
 const ChatWorkspace: React.FC = () => {
   const { user, userProfile, refreshUserProfile, updateUserProfileXP, setUserProfileXP } = useAuth();
   const { isAuthenticated: getIsAuthenticated, authenticate, createGoalBoard, addImageToBHAG, moveCardToList, findCardByName, getBoardLists } = useTrello();
-  const { generate4W1HQuestions, process4W1HAnswers, generateGoalImage, processProgressUpdate, generateProgressDiscussionResponse, analyzeProgress } = useAI();
+  const { generate4W1HQuestions, process4W1HAnswers, generateGoalImage, processProgressUpdate } = useAI();
   const { saveSession, loadSession, createNewSession, saveGoal, getUserGoals, addUserXP } = useChatHistory();
   // Using local XP service instead of Firebase
   
@@ -45,6 +45,7 @@ const ChatWorkspace: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [generatedQuestions, setGeneratedQuestions] = useState<string[]>([]);
   const [fourWOneHAnswers, setFourWOneHAnswers] = useState<Partial<FourWOneHAnswers>>({});
   const [availableBoards, setAvailableBoards] = useState<any[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState<string>('');
@@ -230,7 +231,21 @@ const ChatWorkspace: React.FC = () => {
           if (currentSession?.currentStep === 'trello-connect') {
             setCurrentQuestionIndex(0);
             setFourWOneHAnswers({});
-            simulateAIResponse("Perfect! You're connected to Trello. What goal would you like to work on today?", 1000);
+            simulateAIResponse(
+              `Perfect! You're connected to Trello.
+
+Now I'll guide you through the 4W1H Goal-Setting Framework to create a comprehensive plan:
+
+What - What exactly do you want to achieve?
+Why - Why is this goal important to you?
+When - When do you want to complete it?
+Where - Where will you work on this goal?
+Who - Who can help you achieve it?
+How - How will you approach this goal?
+
+This structured approach ensures your goals are clear, meaningful, and actionable. What goal would you like to work on today?`, 
+              1500
+            );
             setCurrentSession(prev => prev ? { ...prev, currentStep: '4w1h' } : null);
           }
         } catch (error) {
@@ -324,7 +339,21 @@ const ChatWorkspace: React.FC = () => {
         // Reset question index and start 4W1H flow
         setCurrentQuestionIndex(0);
         setFourWOneHAnswers({});
-        simulateAIResponse("Great! What would you like to achieve?", 1000);
+        simulateAIResponse(
+          `Welcome to the 4W1H Goal-Setting Framework!
+
+I'll help you create a structured plan using the proven 4W1H methodology:
+
+What - Define your specific goal clearly
+Why - Understand your motivation and purpose
+When - Set realistic timelines and deadlines
+Where - Identify your work environment and location
+Who - Recognize your support system and team
+How - Develop your strategy and action plan
+
+This framework ensures your goals are well-defined, meaningful, and actionable. Let's start with your goal - what would you like to achieve?`, 
+          2000
+        );
         setCurrentSession(prev => prev ? { ...prev, currentStep: '4w1h' } : null);
       }
     } else if (currentSession.currentStep === 'trello-connect') {
@@ -332,7 +361,21 @@ const ChatWorkspace: React.FC = () => {
       if (message.toLowerCase().includes('connect') || message.toLowerCase().includes('trello')) {
         authenticate();
       } else {
-        simulateAIResponse("To get started, I need to connect to your Trello account. This allows me to create organized boards and track your progress. Would you like to connect now?", 1000);
+        simulateAIResponse(
+          `Welcome to your Goal-Setting Assistant!
+
+I'm here to help you achieve your goals using the proven 4W1H Framework - a structured approach that ensures your goals are:
+
+Clear & Specific (What)
+Motivating & Purposeful (Why)
+Time-bound (When)
+Environmentally Considered (Where)
+Support-Network Aware (Who)
+Strategically Planned (How)
+
+To get started, I need to connect to your Trello account. This allows me to create organized boards and track your progress automatically. Would you like to connect now?`, 
+          2000
+        );
       }
     } else if (currentSession.currentStep === '4w1h') {
       // Handle 4W1H responses
@@ -346,27 +389,51 @@ const ChatWorkspace: React.FC = () => {
     if (currentQuestionIndex === 0) {
       setFourWOneHAnswers(prev => ({ ...prev, what: message }));
       setCurrentQuestionIndex(1);
-      simulateAIResponse("Great! Now let's understand your motivation. Why is this goal important to you? What's driving you to achieve it?", 1000);
+      
+      // Generate AI-powered personalized questions based on the goal
+      simulateAIResponse("Great! Let me create some personalized questions for you based on your goal...", 1000);
+      
+      try {
+        const questions = await generate4W1HQuestions(message);
+        setGeneratedQuestions(questions);
+        simulateAIResponse(questions[0], 1500); // Ask the first AI-generated question
+      } catch (error) {
+        console.error('Error generating AI questions:', error);
+        // Fallback to hardcoded questions
+        const fallbackQuestions = [
+          "Great! Now let's understand your motivation. Why is this goal important to you? What's driving you to achieve it?",
+          "Excellent! Now let's talk about timing. When do you want to achieve this goal? What's your target timeline?",
+          "Perfect! Now let's discuss the environment. Where will you be working on this goal? What's your workspace or environment like?",
+          "Good! Now let's think about support. Who else might be involved in helping you achieve this goal? Do you have mentors, teammates, or supporters?",
+          "Great! Finally, let's plan your approach. How do you plan to achieve this goal? What's your strategy or methodology?"
+        ];
+        setGeneratedQuestions(fallbackQuestions);
+        simulateAIResponse(fallbackQuestions[0], 1500);
+      }
     } else if (currentQuestionIndex === 1) {
       // Why question
       setFourWOneHAnswers(prev => ({ ...prev, why: message }));
       setCurrentQuestionIndex(2);
-      simulateAIResponse("Excellent! Now let's talk about timing. When do you want to achieve this goal? What's your target timeline?", 1000);
+      const nextQuestion = generatedQuestions[1] || "Excellent! Now let's talk about timing. When do you want to achieve this goal? What's your target timeline?";
+      simulateAIResponse(nextQuestion, 1000);
     } else if (currentQuestionIndex === 2) {
       // When question
       setFourWOneHAnswers(prev => ({ ...prev, when: message }));
       setCurrentQuestionIndex(3);
-      simulateAIResponse("Perfect! Now let's discuss the environment. Where will you be working on this goal? What's your workspace or environment like?", 1000);
+      const nextQuestion = generatedQuestions[2] || "Perfect! Now let's discuss the environment. Where will you be working on this goal? What's your workspace or environment like?";
+      simulateAIResponse(nextQuestion, 1000);
     } else if (currentQuestionIndex === 3) {
       // Where question
       setFourWOneHAnswers(prev => ({ ...prev, where: message }));
       setCurrentQuestionIndex(4);
-      simulateAIResponse("Good! Now let's think about support. Who else might be involved in helping you achieve this goal? Do you have mentors, teammates, or supporters?", 1000);
+      const nextQuestion = generatedQuestions[3] || "Good! Now let's think about support. Who else might be involved in helping you achieve this goal? Do you have mentors, teammates, or supporters?";
+      simulateAIResponse(nextQuestion, 1000);
     } else if (currentQuestionIndex === 4) {
       // Who question
       setFourWOneHAnswers(prev => ({ ...prev, who: message }));
       setCurrentQuestionIndex(5);
-      simulateAIResponse("Great! Finally, let's plan your approach. How do you plan to achieve this goal? What's your strategy or methodology?", 1000);
+      const nextQuestion = generatedQuestions[4] || "Great! Finally, let's plan your approach. How do you plan to achieve this goal? What's your strategy or methodology?";
+      simulateAIResponse(nextQuestion, 1000);
     } else if (currentQuestionIndex === 5) {
       // How question - final question
       setFourWOneHAnswers(prev => ({ ...prev, how: message }));
@@ -437,6 +504,7 @@ const ChatWorkspace: React.FC = () => {
 
       // Award BHAG Creation Certificate (since this is a new BHAG)
       console.log('Step 7: Awarding BHAG Creation Certificate...');
+      simulateAIResponse("🏆 Step 7/7: Generating your BHAG Creation Certificate...", 500);
       try {
         await certificateService.generateBHAGCertificate(
           user.uid, 
@@ -444,8 +512,10 @@ const ChatWorkspace: React.FC = () => {
           new Date()
         );
         console.log('🎖️ BHAG Creation Certificate awarded!');
+        simulateAIResponse("✅ Step 7 complete: Certificate generated successfully!", 300);
       } catch (certError) {
         console.error('Error awarding BHAG creation certificate:', certError);
+        simulateAIResponse("⚠️ Step 7 warning: Certificate generation had an issue", 300);
         // Continue without failing the entire process
       }
 
@@ -468,9 +538,18 @@ const ChatWorkspace: React.FC = () => {
       }, 1000); // 1 second delay
 
       // Only send success message if ALL steps completed successfully
-            console.log('Step 9: All steps completed successfully, sending success message...');
+      console.log('Step 9: All steps completed successfully, sending success message...');
       simulateAIResponse(
-        `🎉 Excellent! I've created your goal board "${goalStructure.title}" in Trello with a structured weekly plan. I've also generated a visual representation of your goal in the BHAG list. You earned 100 XP for creating your BHAG! You can now start working on your tasks and report your progress to me!`,
+        `🎉 **ALL DONE!** Your BHAG is ready!
+
+✅ Goal structure created and analyzed
+✅ Trello board "${goalStructure.title}" created with organized lists
+✅ Beautiful visual representation generated
+✅ +100 XP awarded for BHAG creation
+✅ Certificate generated for your achievement
+✅ Session updated and saved
+
+Your structured goal plan is now live in Trello! You can start working on your tasks and report your progress to me anytime. Good luck achieving your BHAG! 🚀`,
         2000
       );
     } catch (error) {
@@ -513,15 +592,18 @@ const ChatWorkspace: React.FC = () => {
       // Check for progress updates and handle card movements
       await handleProgressUpdate(message);
       
-      // Generate context-aware response using user goals and Trello boards
-      const response = await generateProgressDiscussionResponse(
-        message,
-        userGoals,
-        availableBoards,
-        currentSession.messages
-      );
-      
-      simulateAIResponse(response, 1000);
+      // Generate context-aware response using AI
+      try {
+        const response = await processProgressUpdate(message, availableBoards.flatMap(board => board.lists?.flatMap(list => list.cards) || []));
+        if (response && response.response) {
+          simulateAIResponse(response.response, 1000);
+        } else {
+          simulateAIResponse("Thanks for the update! I can see you're making progress on your goals. Keep up the great work!", 1000);
+        }
+      } catch (error) {
+        console.error('Error generating progress response:', error);
+        simulateAIResponse("Thanks for the update! I can see you're making progress on your goals. Keep up the great work!", 1000);
+      }
     } catch (error) {
       console.error('Error in active conversation:', error);
       simulateAIResponse("I'm here to help you with your goals! How can I assist you today?", 1000);
