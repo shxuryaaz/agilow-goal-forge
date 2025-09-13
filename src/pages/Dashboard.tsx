@@ -1,222 +1,229 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MessageSquare, BarChart3, Settings, ExternalLink } from 'lucide-react';
-import Navbar from '@/components/layout/navbar';
-import ChatInterface from '@/components/chat/chat-interface';
-import ProgressTracker from '@/components/ui/progress-tracker';
-import BadgeDisplay from '@/components/gamification/badge-display';
-import { Button } from '@/components/ui/button';
+import { 
+  BarChart3, 
+  Target, 
+  Trophy,
+  TrendingUp,
+  Calendar,
+  CheckCircle
+} from 'lucide-react';
+import Sidebar from '@/components/layout/sidebar';
+import TopBar from '@/components/layout/topbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-
-interface Message {
-  id: string;
-  text: string;
-  isUser: boolean;
-  timestamp: Date;
-}
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { useAuth } from '@/contexts/AuthContext';
+import TrelloIntegration from '@/components/trello/trello-integration';
+import { trelloService } from '@/services/trello';
 
 const Dashboard: React.FC = () => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [currentStep, setCurrentStep] = useState(2);
-  const [messages] = useState<Message[]>([
+  const { user, userProfile } = useAuth();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showTrelloIntegration, setShowTrelloIntegration] = useState(false);
+
+  // OAuth callback is now handled in OAuthCallback.tsx component
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
+  // Mock data for dashboard metrics
+  const stats = [
+    {
+      title: 'Total Goals',
+      value: '12',
+      change: '+2 this week',
+      icon: Target,
+      color: 'text-blue-400'
+    },
+    {
+      title: 'Completed',
+      value: '8',
+      change: '+3 this week',
+      icon: CheckCircle,
+      color: 'text-green-400'
+    },
+    {
+      title: 'In Progress',
+      value: '4',
+      change: '2 active',
+      icon: TrendingUp,
+      color: 'text-yellow-400'
+    },
+    {
+      title: 'Total XP',
+      value: '2,450',
+      change: '+300 this week',
+      icon: Trophy,
+      color: 'text-purple-400'
+    }
+  ];
+
+  const recentGoals = [
     {
       id: '1',
-      text: 'I want to launch my own SaaS product within 6 months',
-      isUser: true,
-      timestamp: new Date('2024-01-15T10:00:00')
+      name: 'Complete React Course',
+      progress: 75,
+      status: 'in-progress',
+      dueDate: '2024-01-15'
     },
     {
       id: '2',
-      text: 'Excellent goal! I\'ve created a comprehensive SMART plan for launching your SaaS product. Here are the key milestones:\n\n1. Market Research & Validation (Month 1)\n2. MVP Development (Months 2-3)\n3. Beta Testing & Iteration (Month 4)\n4. Marketing Strategy & Launch Prep (Month 5)\n5. Official Launch (Month 6)\n\nWould you like me to break down any of these phases in more detail?',
-      isUser: false,
-      timestamp: new Date('2024-01-15T10:01:00')
+      name: 'Run 5K Marathon',
+      progress: 45,
+      status: 'in-progress',
+      dueDate: '2024-02-01'
     },
     {
       id: '3',
-      text: 'Yes, please break down the MVP development phase',
-      isUser: true,
-      timestamp: new Date('2024-01-15T10:02:00')
+      name: 'Read 12 Books',
+      progress: 100,
+      status: 'completed',
+      dueDate: '2024-01-10'
     }
-  ]);
-
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-    document.documentElement.classList.toggle('dark');
-  };
-
-  const trelloTasks = [
-    { id: 1, title: 'Conduct user interviews', completed: true },
-    { id: 2, title: 'Create wireframes', completed: true },
-    { id: 3, title: 'Set up development environment', completed: false },
-    { id: 4, title: 'Build authentication system', completed: false },
-    { id: 5, title: 'Design database schema', completed: false },
   ];
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar 
-        isLoggedIn={true}
-        userXP={1250}
-        isDarkMode={isDarkMode}
-        onThemeToggle={toggleTheme}
-      />
+      <Sidebar isCollapsed={isSidebarCollapsed} onToggle={toggleSidebar} />
+      <TopBar onSidebarToggle={toggleSidebar} isSidebarCollapsed={isSidebarCollapsed} />
       
-      <div className="pt-24 pb-12">
-        <div className="container mx-auto px-6">
-          <div className="grid lg:grid-cols-12 gap-6">
-            
-            {/* Left Sidebar - Progress & Stats */}
-            <div className="lg:col-span-3 space-y-6">
-              {/* Progress Tracker */}
-              <ProgressTracker currentStep={currentStep} />
-              
-              {/* Quick Stats */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Your Stats</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Goals Set</span>
-                    <span className="font-semibold">3</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Plans Created</span>
-                    <span className="font-semibold">2</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Milestones Hit</span>
-                    <span className="font-semibold">7</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Streak</span>
-                    <span className="font-semibold text-success">5 days</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Recent Badges */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Recent Badges</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <BadgeDisplay showAll={false} />
-                </CardContent>
-              </Card>
+      <main
+        className="transition-all duration-300 ease-in-out"
+        style={{
+          marginLeft: isSidebarCollapsed ? '80px' : '320px',
+          marginTop: '64px'
+        }}
+      >
+        <div className="p-6 space-y-6">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between"
+          >
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+              <p className="text-muted-foreground">Track your goals and progress</p>
             </div>
+            <div className="flex items-center space-x-2">
+              <Badge variant="outline" className="text-green-400 border-green-400">
+                <Trophy className="w-3 h-3 mr-1" />
+                Level 5
+              </Badge>
+            </div>
+          </motion.div>
 
-            {/* Main Chat Area */}
-            <div className="lg:col-span-6">
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {stats.map((stat, index) => (
               <motion.div
+                key={stat.title}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="h-[calc(100vh-200px)] flex flex-col"
+                transition={{ delay: index * 0.1 }}
               >
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center space-x-3">
-                    <MessageSquare className="w-6 h-6 text-primary" />
-                    <h1 className="text-2xl font-bold text-foreground">
-                      Goal Assistant
-                    </h1>
-                  </div>
-                  
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      Analytics
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Settings className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="glass-card flex-1 p-6">
-                  <ChatInterface messages={messages} />
-                </div>
+                <Card className="premium-card">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      {stat.title}
+                    </CardTitle>
+                    <stat.icon className={`w-4 h-4 ${stat.color}`} />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+                    <p className="text-xs text-muted-foreground">{stat.change}</p>
+                  </CardContent>
+                </Card>
               </motion.div>
-            </div>
-
-            {/* Right Sidebar - Trello Integration */}
-            <div className="lg:col-span-3 space-y-6">
-              {/* Trello Preview */}
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Trello Board</CardTitle>
-                    <Button variant="outline" size="sm">
-                      <ExternalLink className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="text-sm text-muted-foreground mb-3">
-                    SaaS Launch Project
-                  </div>
-                  
-                  {trelloTasks.map((task, index) => (
-                    <motion.div
-                      key={task.id}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className={`p-3 rounded-lg border ${
-                        task.completed 
-                          ? 'bg-success-light/20 border-success/30' 
-                          : 'bg-muted/50 border-border'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-3 h-3 rounded-full ${
-                          task.completed ? 'bg-success' : 'bg-muted-foreground'
-                        }`} />
-                        <span className={`text-sm ${
-                          task.completed 
-                            ? 'text-success line-through' 
-                            : 'text-foreground'
-                        }`}>
-                          {task.title}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                  
-                  <Separator className="my-4" />
-                  
-                  <div className="text-center">
-                    <Button variant="outline" size="sm" className="w-full">
-                      View Full Board
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Quick Actions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start">
-                    Set New Goal
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    Review Progress
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    Connect Slack
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start">
-                    Export Plan
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+            ))}
           </div>
+
+          {/* Recent Goals */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <Card className="premium-card">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Target className="w-5 h-5" />
+                  <span>Recent Goals</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {recentGoals.map((goal) => (
+                  <div key={goal.id} className="flex items-center justify-between p-4 rounded-lg bg-sidebar-accent/20 border border-sidebar-border">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-medium text-foreground">{goal.name}</h3>
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            goal.status === 'completed' 
+                              ? 'text-green-400 border-green-400' 
+                              : 'text-yellow-400 border-yellow-400'
+                          }
+                        >
+                          {goal.status === 'completed' ? 'Completed' : 'In Progress'}
+                        </Badge>
+                      </div>
+                      <Progress value={goal.progress} className="mb-2" />
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>{goal.progress}% complete</span>
+                        <span>Due: {new Date(goal.dueDate).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Quick Actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+          >
+            <Card className="premium-card">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <BarChart3 className="w-5 h-5" />
+                  <span>Quick Actions</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-lg bg-sidebar-accent/20 border border-sidebar-border hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
+                    <Target className="w-8 h-8 text-blue-400 mb-2" />
+                    <h3 className="font-medium text-foreground mb-1">Create New Goal</h3>
+                    <p className="text-sm text-muted-foreground">Start a new goal with AI assistance</p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-sidebar-accent/20 border border-sidebar-border hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
+                    <Calendar className="w-8 h-8 text-green-400 mb-2" />
+                    <h3 className="font-medium text-foreground mb-1">View Calendar</h3>
+                    <p className="text-sm text-muted-foreground">See your goal timeline</p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-sidebar-accent/20 border border-sidebar-border hover:bg-sidebar-accent/30 transition-colors cursor-pointer">
+                    <Trophy className="w-8 h-8 text-purple-400 mb-2" />
+                    <h3 className="font-medium text-foreground mb-1">View Achievements</h3>
+                    <p className="text-sm text-muted-foreground">Check your progress and rewards</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
-      </div>
+      </main>
+
+      {/* Trello Integration Modal */}
+      <TrelloIntegration
+        isOpen={showTrelloIntegration}
+        onClose={() => setShowTrelloIntegration(false)}
+      />
     </div>
   );
 };

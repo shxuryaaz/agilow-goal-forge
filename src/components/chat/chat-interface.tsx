@@ -1,9 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, MessageCircle } from 'lucide-react';
+import { Send, MessageCircle, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import TypingIndicator from '@/components/ui/typing-indicator';
+import { useAuth } from '@/contexts/AuthContext';
+import { createGoal } from '@/services/goals';
+import { useGamification } from '@/services/gamification';
+import { useToast } from '@/hooks/use-toast';
 import agliowLogo from '@/assets/agilow-logo.png';
 
 interface Message {
@@ -27,31 +31,53 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [localMessages, setLocalMessages] = useState<Message[]>(messages);
+  const [isProcessingGoal, setIsProcessingGoal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user, userProfile } = useAuth();
+  const { toast } = useToast();
+  const { awardXP } = useGamification();
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end',
+        inline: 'nearest'
+      });
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [localMessages, isTyping]);
+    // Only scroll when there are messages and not during initial load
+    if (localMessages.length > 0) {
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [localMessages.length, isTyping]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isProcessingGoal) return;
 
+    const goalText = inputValue.trim();
     const newMessage: Message = {
       id: Date.now().toString(),
-      text: inputValue,
+      text: goalText,
       isUser: true,
       timestamp: new Date()
     };
 
     setLocalMessages(prev => [...prev, newMessage]);
-    onGoalSubmit?.(inputValue);
+    setInputValue('');
 
-    if (isLandingPage) {
+    if (isLandingPage || !user) {
+      // Call onGoalSubmit if provided (for landing page)
+      if (onGoalSubmit) {
+        onGoalSubmit(goalText);
+      }
+      
       setIsTyping(true);
       setTimeout(() => {
         setIsTyping(false);
@@ -63,16 +89,60 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         };
         setLocalMessages(prev => [...prev, aiResponse]);
       }, 2000);
+      return;
     }
 
-    setInputValue('');
+    // Process goal with Firebase
+    setIsProcessingGoal(true);
+    setIsTyping(true);
+
+    try {
+      const goal = await createGoal(user.uid, goalText, userProfile?.wallet?.publicAddress);
+      
+      // Award XP for goal creation
+      await awardXP(50, 'Goal created', 'milestone', goal.id);
+      
+      setIsTyping(false);
+      const successMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: `🎉 Amazing! I've created a structured plan for "${goal.goal}". You earned 50 XP! ${goal.nft ? 'A Proof-of-Commitment NFT has been minted to your wallet!' : ''} Check your dashboard to see your milestones, Trello board, and NFT gallery.`,
+        isUser: false,
+        timestamp: new Date()
+      };
+      setLocalMessages(prev => [...prev, successMessage]);
+      
+      toast({
+        title: "Goal Created! 🎯",
+        description: "Your goal has been processed and a Trello board has been created.",
+      });
+      
+      onGoalSubmit?.(goalText);
+    } catch (error: any) {
+      console.error('Error creating goal:', error);
+      setIsTyping(false);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "I'm sorry, I encountered an error while processing your goal. Please try again or contact support if the issue persists.",
+        isUser: false,
+        timestamp: new Date()
+      };
+      setLocalMessages(prev => [...prev, errorMessage]);
+      
+      toast({
+        title: "Error",
+        description: "Failed to create goal. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingGoal(false);
+    }
   };
 
   return (
     <div className={`flex flex-col ${isLandingPage ? 'max-w-2xl mx-auto' : 'flex-1'}`}>
       {/* Chat Messages */}
       {localMessages.length > 0 && (
-        <div className={`flex-1 ${isLandingPage ? 'max-h-96' : 'min-h-0'} overflow-y-auto mb-6 space-y-4`}>
+        <div className={`flex-1 ${isLandingPage ? 'max-h-96' : 'min-h-0'} overflow-y-auto mb-6 space-y-4 scrollbar-chat`}>
           <AnimatePresence>
             {localMessages.map((message) => (
               <motion.div
@@ -135,10 +205,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           
           <Button
             type="submit"
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() || isProcessingGoal}
             className="rounded-xl px-4 py-2 bg-gradient-primary text-white hover:shadow-glow transition-all duration-300"
           >
-            <Send className="w-4 h-4" />
+            {isProcessingGoal ? (
+              <Sparkles className="w-4 h-4 animate-pulse" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
           </Button>
         </div>
         

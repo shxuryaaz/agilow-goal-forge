@@ -1,0 +1,30 @@
+{
+  "name": "agilow-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for Agilow Proof-of-Commitment NFTs",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "test": "hardhat test",
+    "verify": "hardhat verify --network sepolia"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "hardhat": "^2.19.0",
+    "dotenv": "^16.3.1"
+  },
+  "keywords": [
+    "nft",
+    "soulbound",
+    "goals",
+    "commitment",
+    "ethereum",
+    "sepolia"
+  ],
+  "author": "Agilow Team",
+  "license": "MIT"
+}
+
